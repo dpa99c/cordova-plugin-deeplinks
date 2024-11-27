@@ -11,6 +11,7 @@
 #import "CDVPluginResult+CULPlugin.h"
 #import "CDVInvokedUrlCommand+CULPlugin.h"
 #import "CULConfigJsonParser.h"
+#import "AppDelegate+APPAppEvent.h"
 
 @interface CULPlugin() {
     NSArray *_supportedHosts;
@@ -19,6 +20,11 @@
 }
 
 @end
+
+/**
+ *  Plugin name in config.xml
+ */
+static NSString *const PLUGIN_NAME = @"UniversalLinks";
 
 @implementation CULPlugin
 
@@ -29,12 +35,14 @@
     // Can be used for testing.
     // Just uncomment, close the app and reopen it. That will simulate application launch from the link.
 //    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onResume:) name:UIApplicationWillEnterForegroundNotification object:nil];
+  
+  [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(continueUserActivity:) name:UIApplicationContinueUserActivity object:nil];
 }
 
 //- (void)onResume:(NSNotification *)notification {
 //    NSUserActivity *activity = [[NSUserActivity alloc] initWithActivityType:NSUserActivityTypeBrowsingWeb];
 //    [activity setWebpageURL:[NSURL URLWithString:@"http://site2.com/news/page?q=1&v=2#myhash"]];
-//    
+//
 //    [self handleUserActivity:activity];
 //}
 
@@ -43,7 +51,7 @@
     if (![url isKindOfClass:[NSURL class]]) {
         return;
     }
-    
+
     CULHost *host = [self findHostByURL:url];
     if (host) {
         [self storeEventWithHost:host originalURL:url];
@@ -52,15 +60,15 @@
 
 - (BOOL)handleUserActivity:(NSUserActivity *)userActivity {
     [self localInit];
-    
+
     NSURL *launchURL = userActivity.webpageURL;
     CULHost *host = [self findHostByURL:launchURL];
     if (host == nil) {
         return NO;
     }
-    
+
     [self storeEventWithHost:host originalURL:launchURL];
-    
+
     return YES;
 }
 
@@ -68,19 +76,32 @@
     _supportedHosts = nil;
     _subscribers = nil;
     _storedEvent = nil;
-    
+  
+  [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationContinueUserActivity object:nil];
+
     [super onAppTerminate];
 }
 
 #pragma mark Private API
 
+- (void) continueUserActivity:(NSNotification*)notification{
+  
+     NSUserActivity* userActivity = notification.object;
+     // ignore activities that are not for Universal Links
+     if (![userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb] || userActivity.webpageURL == nil) {
+         return;
+     }
+
+    [self handleUserActivity:userActivity];
+}
+
 - (void)localInit {
     if (_supportedHosts) {
         return;
     }
-    
+
     _subscribers = [[NSMutableDictionary alloc] init];
-    
+
     // Get supported hosts from the config.xml or www/ul.json.
     // For now priority goes to json config.
     _supportedHosts = [self getSupportedHostsFromPreferences];
@@ -91,7 +112,7 @@
     if (jsonConfigPath) {
         return [CULConfigJsonParser parseConfig:jsonConfigPath];
     }
-    
+
     return [CULConfigXmlParser parse];
 }
 
@@ -123,7 +144,7 @@
             break;
         }
     }
-    
+
     return host;
 }
 
@@ -131,14 +152,14 @@
 
 /**
  *  Try to send event to the web page.
- *  If there is a subscriber for the event - it will be consumed. 
+ *  If there is a subscriber for the event - it will be consumed.
  *  If not - it will stay until someone subscribes to it.
  */
 - (void)tryToConsumeEvent {
     if (_subscribers.count == 0 || _storedEvent == nil) {
         return;
     }
-    
+
     NSString *storedEventName = [_storedEvent eventName];
     for (NSString *eventName in _subscribers) {
         if ([storedEventName isEqualToString:eventName]) {
@@ -157,7 +178,7 @@
     if (eventName.length == 0) {
         return;
     }
-    
+
     _subscribers[eventName] = command.callbackId;
     [self tryToConsumeEvent];
 }
@@ -167,7 +188,7 @@
     if (eventName.length == 0) {
         return;
     }
-    
+
     [_subscribers removeObjectForKey:eventName];
 }
 

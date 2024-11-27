@@ -6,11 +6,12 @@
 
 #import <Foundation/Foundation.h>
 #import <Cordova/CDVPlugin.h>
+#import "APPAppEventDelegate.h"
 
 /**
  *  Plugin main class.
  */
-@interface CULPlugin : CDVPlugin
+@interface CULPlugin : CDVPlugin <APPAppEventDelegate>
 
 /**
  *  Subscribe to event.
