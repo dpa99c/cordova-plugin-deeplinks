@@ -30,7 +30,7 @@
   <platform name="ios">
     <hook src="hooks/iosBeforePrepareHook.js" type="before_prepare" />
 
-    <dependency id="cordova-plugin-ios-app-delegate-events"/>
+    <dependency id="cordova-plugin-ios-app-delegate-events" version=">=2.0.1"/>
 
 <!-- Plugin inclusion in Cordova config.xml  -->
     <config-file parent="/*" target="config.xml">
